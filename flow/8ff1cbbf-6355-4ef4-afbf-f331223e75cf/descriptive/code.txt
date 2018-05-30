@@ -1,0 +1,86 @@
+Fields["Menu - Behandlingsoversigt"].click();
+
+Wait.forField(Fields['Behandlingsoversigt - Treeview'], 10);
+Wait.forSeconds(1);
+
+// Disambiguer, hvis der er flere datoer i den rå højreklikskontekst:
+function getUniqueDatesInInputs() {
+  var fullContext = Inputs['[sirenia.eu]Manatee.In.OpenContextMenuInfo.Info'];
+  var dateRegex = /\d\d?-\d\d?-\d{4}/g;
+  var matcher;
+  var uniqueDates = [Inputs['date']];
+  while ((matcher = dateRegex.exec(fullContext)) !== null)  {
+    if (uniqueDates.indexOf(matcher[0]) === -1) {
+      uniqueDates.push(matcher[0]);
+    }
+  }
+  uniqueDates.sort();
+  return uniqueDates;
+}
+
+function getSpecialDate(dates) {
+  if (dates.length > 1) {
+    var inputResult = Dialog.input('Vælg dato', 'Hvilken dato skal bruges i opslaget?', {
+      submitOnValidation: true,
+      selectedDate: {
+        type: 'RADIO',	
+        selectBetween: dates,
+        focus: true,
+        validation: {
+          isRequired: true
+        }
+      }
+    });
+    return inputResult.selectedDate;
+  } else {
+    return dates[0];
+  }
+}
+
+function parseDate(dateString) {
+  var matches = dateString.match(/(\d\d?)[^\d](\d\d?)[^\d](\d{4})/);
+  if (!matches) {
+    throw "Failed to parse date: " + dateString;
+  }
+  return {
+    day: matches[1],
+    month: matches[2],
+    year: matches[3]
+  };
+}
+
+var uniqueDates = getUniqueDatesInInputs();
+var selectedDate = getSpecialDate(uniqueDates);
+var dateObj = parseDate(selectedDate);
+
+// Inspect the treeview so we can identify which nodes to expand
+var treeViewRoot = Fields["Behandlingsoversigt - Treeview"].inspect({ reflectionDepth: 3 }); // 'begin.date.day' is three levels deep
+var inspectObject = {};
+
+// Returns an array of 'keys' for nodes that match the given regexp
+function getActivityNodesRec(node, regExp) {
+  if (regExp.test(node.userobject)) {
+    return [node.display]; // Return a unique string (object reference uniqueness)
+  }
+  return [].concat.apply([], node.children.map(function(child) {
+    return getActivityNodesRec(child, dateRegExp);
+  }));
+}
+
+// Builds a RegExp that matches the format in the userobject serialization in the treeview nodes
+function getRegExpWithDate(day, month, year) {
+  return new RegExp("begin.date.day="+day+".*begin.date.month="+month+".*begin.date.year="+year);
+}
+
+var dateRegExp = getRegExpWithDate(dateObj.day, dateObj.month, dateObj.year);
+var treeViewKeys = getActivityNodesRec(treeViewRoot, dateRegExp);
+
+if (treeViewKeys.length == 0) {
+  Notification.show('treelookup', 'Bemærk', 'Ingen behandlinger fundet, der starter ' + selectedDate, { timeout: 5 });
+} else {
+  // Select the nodes in reverse order (ending at the top)
+  for (var i = treeViewKeys.length - 1; i >= 0; i--) {
+    Fields["Behandlingsoversigt - Treeview"].select(treeViewKeys[i]);
+    Wait.forMilliseconds(10);
+  }
+}
