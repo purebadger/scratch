@@ -1,4 +1,4 @@
-// Hello
+// Hello again
 Sticky.open(
   "hello",
   { 
