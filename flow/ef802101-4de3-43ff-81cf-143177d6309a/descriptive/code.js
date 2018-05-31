@@ -1,3 +1,4 @@
+// Hello
 Sticky.open(
   "hello",
   { 
