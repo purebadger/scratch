@@ -9,3 +9,4 @@ hello
 hello
 hello
 foo
+bar
