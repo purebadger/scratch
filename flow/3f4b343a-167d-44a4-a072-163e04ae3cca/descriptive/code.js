@@ -4,3 +4,5 @@ if (desktops.length > 1 && desktops[0] != Desktop.current()) {
   Desktop.switchLeft();
   Flow.run('Show bookplan', {});
 } 
+
+App.location();
